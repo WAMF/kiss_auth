@@ -33,11 +33,11 @@ This separation allows you to:
 
 AUTHENTICATION ONLY          AUTHORIZATION ONLY         COMBINED USAGE
 ┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐
-│   AuthValidator      │    │ AuthorizationService │    │  AuthorizationServer │
+│   AuthValidator      │    │ AuthorizationProvider│    │ AuthorizationService │
 │   (JWT validation)   │    │ (External service)   │    │ (Auth + Authz)       │
 │         │            │    │         │            │    │         │            │
 │         ▼            │    │         ▼            │    │         ▼            │
-│   AuthMetadata       │    │ AuthorizationData    │    │AuthorizationContext  │
+│ AuthenticationData   │    │ AuthorizationData    │    │AuthorizationContext  │
 │   (Identity)         │    │ (Roles/Permissions)  │    │(Identity + Authz)    │
 └──────────────────────┘    └──────────────────────┘    └──────────────────────┘
 ```
@@ -62,10 +62,12 @@ import 'package:kiss_auth/kiss_authentication.dart';
 final validator = JwtAuthValidator.hmac('your-secret-key');
 
 try {
-  final metadata = await validator.validateToken(jwtToken);
-  print('User ID: ${metadata.userId}');
-  print('Roles: ${metadata.roles}');
-  print('Claims: ${metadata.claims}');
+  final authData = await validator.validateToken(jwtToken);
+  print('User ID: ${authData.userId}');
+  print('Roles: ${authData.jwt.getClaim<List>('roles') ?? []}');
+  print('Claims: ${authData.claims}');
+  print('Subject: ${authData.jwt.subject}');
+  print('Expiration: ${authData.jwt.expiration}');
 } catch (e) {
   print('Invalid token: $e');
 }
@@ -73,8 +75,8 @@ try {
 
 ### Features
 - 🔐 **JWT Token Validation** - HMAC and RSA signature algorithms
-- 👤 **Identity Extraction** - User ID, roles, and claims from tokens
-- 🔒 **Basic Permission Checks** - Simple role and permission validation from JWT claims
+- 👤 **Identity Extraction** - User ID and claims from tokens
+- 🔒 **JWT Claims Access** - Access to standard and custom JWT claims through extension methods
 - 📦 **Lightweight** - Minimal dependencies, focused functionality
 - 🧪 **Well Tested** - Comprehensive test coverage
 
@@ -85,20 +87,26 @@ If you have your own authentication system but need role-based access control:
 ```dart
 import 'package:kiss_auth/kiss_authorization.dart';
 
-// Configure authorization service
-final config = AuthorizationServiceConfig(
-  baseUrl: 'https://authz-service.example.com',
-  apiKey: 'your-api-key',
+// Configure authorization provider (example with in-memory provider)
+final authzProvider = InMemoryAuthorizationProvider();
+
+// Set up user authorization data
+authzProvider.setUserData(
+  'user123',
+  const AuthorizationData(
+    userId: 'user123',
+    roles: ['editor', 'user'],
+    permissions: ['document:read', 'document:edit'],
+    attributes: {'department': 'engineering'},
+  ),
 );
 
-final authzService = YourAuthorizationProvider(config);
-final authzClient = AuthorizationClient(authzService);
+final authzClient = AuthorizationClient(authzProvider);
 
 // Check user permissions
 final canEdit = await authzClient.hasPermission(
   'user123',
   'document:edit',
-  resource: 'document:456',
 );
 
 final userRoles = await authzClient.getEffectiveRoles('user123', 'documents');
@@ -120,25 +128,37 @@ import 'package:kiss_auth/kiss_authorization.dart';
 
 // Configure both authentication and authorization
 final authValidator = JwtAuthValidator.hmac('secret-key');
-final authzService = YourAuthorizationProvider(config);
-final authzServer = AuthorizationServer(authValidator, authzService);
+final authzProvider = InMemoryAuthorizationProvider();
+
+// Set up authorization data
+authzProvider.setUserData(
+  'user123',
+  const AuthorizationData(
+    userId: 'user123',
+    roles: ['editor', 'user'],
+    permissions: ['document:edit', 'document:read'],
+    attributes: {'department': 'engineering'},
+  ),
+);
+
+final authzService = AuthorizationService(authValidator, authzProvider);
 
 // Validate token and check permissions in one call
-final authorized = await authzServer.checkAuthorization(
+final authorized = await authzService.checkAuthorization(
   token,
   resource: 'documents',
-  action: 'edit',
-  requiredRoles: ['editor', 'admin'],
+  requiredRoles: ['editor'],
   requiredPermissions: ['document:edit'],
 );
 
 if (authorized) {
   // User is authenticated and authorized
-  final context = await authzServer.authorize(token, resource: 'documents');
+  final context = await authzService.authorize(token, resource: 'documents');
   print('User: ${context.userId}');
   print('Token roles: ${context.tokenRoles}');
-  print('Service roles: ${context.authzRoles}');
-  print('Permissions: ${context.permissions}');
+  print('Provider roles: ${context.authzRoles}');
+  print('All roles: ${context.allRoles}');
+  print('Permissions: ${context.allPermissions}');
 }
 ```
 
@@ -161,18 +181,26 @@ void main() async {
   final validator = JwtAuthValidator.hmac('secret-key');
   
   try {
-    final metadata = await validator.validateToken(token);
+    final authData = await validator.validateToken(token);
     
     // Basic identity checks
-    print('User: ${metadata.userId}');
+    print('User: ${authData.userId}');
+    print('Subject: ${authData.jwt.subject}');
+    print('Expiration: ${authData.jwt.expiration}');
     
-    // Role checks from JWT claims
-    if (metadata.hasRole('admin')) {
+    // Access JWT claims
+    final roles = authData.jwt.getClaim<List>('roles')?.cast<String>() ?? <String>[];
+    final permissions = authData.jwt.getClaim<List>('permissions')?.cast<String>() ?? <String>[];
+    
+    print('Roles: $roles');
+    print('Permissions: $permissions');
+    
+    // Check specific claims
+    if (roles.contains('admin')) {
       print('User is admin');
     }
     
-    // Permission checks from JWT claims
-    if (metadata.hasPermission('read')) {
+    if (permissions.contains('read')) {
       print('User can read');
     }
     
@@ -188,33 +216,40 @@ void main() async {
 import 'package:kiss_auth/kiss_authorization.dart';
 
 void main() async {
-  final config = AuthorizationServiceConfig(
-    baseUrl: 'https://authz.example.com',
-    apiKey: 'api-key',
+  // Set up in-memory authorization provider
+  final authzProvider = InMemoryAuthorizationProvider();
+  
+  // Configure user authorization data
+  authzProvider.setUserData(
+    'user123',
+    const AuthorizationData(
+      userId: 'user123',
+      roles: ['editor', 'user'],
+      permissions: ['document:read', 'document:edit', 'document:delete'],
+      attributes: {'department': 'engineering', 'level': 'senior'},
+    ),
   );
   
-  final authzService = YourAuthorizationProvider(config);
-  final authzClient = AuthorizationClient(authzService);
+  final authzClient = AuthorizationClient(authzProvider);
   
   // Check specific permission
-  final canEdit = await authzClient.hasPermission(
-    'user123',
-    'document:edit',
-    resource: 'document:456',
-  );
+  final canEdit = await authzClient.hasPermission('user123', 'document:edit');
+  print('Can edit: $canEdit');
   
   // Get all permissions for a resource
-  final permissions = await authzClient.getEffectivePermissions(
-    'user123',
-    'documents',
-  );
+  final permissions = await authzClient.getEffectivePermissions('user123', 'documents');
+  print('Permissions: $permissions');
   
   // Batch check multiple permissions
   final results = await authzClient.checkPermissions(
     'user123',
-    ['read', 'write', 'delete'],
-    resource: 'documents',
+    ['document:read', 'document:write', 'document:delete'],
   );
+  print('Permission results: $results');
+  
+  // Check roles
+  final hasEditorRole = await authzClient.hasRole('user123', 'editor');
+  print('Is editor: $hasEditorRole');
 }
 ```
 
@@ -224,36 +259,53 @@ void main() async {
 import 'package:kiss_auth/kiss_authorization.dart';
 
 void main() async {
-  // Setup
+  // Setup authentication and authorization
   final authValidator = JwtAuthValidator.hmac('secret');
-  final authzService = YourAuthorizationProvider(config);
-  final authzServer = AuthorizationServer(authValidator, authzService);
+  final authzProvider = InMemoryAuthorizationProvider();
+  
+  // Configure authorization data
+  authzProvider.setUserData(
+    'user123',
+    const AuthorizationData(
+      userId: 'user123',
+      roles: ['editor', 'user'],
+      permissions: ['document:edit', 'document:read'],
+      attributes: {'department': 'engineering', 'level': 'senior'},
+    ),
+  );
+  
+  final authzService = AuthorizationService(authValidator, authzProvider);
   
   // Comprehensive authorization check
-  final authorized = await authzServer.checkAuthorization(
+  final authorized = await authzService.checkAuthorization(
     token,
     resource: 'documents',
-    action: 'edit',
     requiredRoles: ['editor'],
     requiredPermissions: ['document:edit'],
-    context: {'department': 'engineering'},
   );
   
   if (authorized) {
     // Get full context
-    final context = await authzServer.authorize(
-      token,
-      resource: 'documents',
-      action: 'edit',
-    );
+    final context = await authzService.authorize(token, resource: 'documents');
     
     // Access both identity and authorization data
     print('User: ${context.userId}');
     print('Token roles: ${context.tokenRoles}');
-    print('Service roles: ${context.authzRoles}');
-    print('Combined roles: ${context.allRoles}');
-    print('Permissions: ${context.permissions}');
+    print('Provider roles: ${context.authzRoles}');
+    print('All roles: ${context.allRoles}');
+    print('Token permissions: ${context.tokenPermissions}');
+    print('Provider permissions: ${context.authzPermissions}');
+    print('All permissions: ${context.allPermissions}');
     print('Attributes: ${context.attributes}');
+    
+    // Use context for fine-grained checks
+    if (context.hasRole('editor')) {
+      print('User can edit');
+    }
+    
+    if (context.hasPermission('document:edit')) {
+      print('User has edit permission');
+    }
   }
 }
 ```

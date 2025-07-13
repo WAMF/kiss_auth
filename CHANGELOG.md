@@ -1,3 +1,24 @@
-## 1.0.0
+## 0.1.0
 
-- Initial version.
+- Initial version with modular authentication and authorization
+- **Authentication Module**:
+  - JWT token validation with HMAC and RSA support
+  - Abstract `AuthenticationData` interface with `JwtAuthenticationData` implementation
+  - JWT claims access through extension methods
+  - Standard JWT claims parsing with `JwtClaimsData`
+- **Authorization Module**:
+  - Role-based and permission-based access control
+  - `InMemoryAuthorizationProvider` for testing and development
+  - `AuthorizationClient` for convenient access control operations
+  - `AuthorizationService` for combined authentication and authorization
+  - Batch permission and role checking
+  - Context-aware authorization with attributes
+- **Architecture**:
+  - Clean separation between authentication (identity) and authorization (permissions)
+  - Abstract interfaces supporting multiple implementations
+  - Extension-based optional functionality
+  - KISS principle throughout with minimal dependencies
+- **Testing**:
+  - Comprehensive test coverage for all modules
+  - Reusable test suite for authorization providers via `generateTests()`
+  - Example implementations and usage patterns
