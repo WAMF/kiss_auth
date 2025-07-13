@@ -73,34 +73,32 @@ void main() {
       });
     });
 
-    group('AuthorizationClient', () {
-      late AuthorizationProvider provider;
-      late AuthorizationClient client;
+    group('InMemoryAuthorizationProvider direct usage', () {
+      late InMemoryAuthorizationProvider provider;
 
       setUp(() {
         provider = InMemoryAuthorizationProvider();
-        setupTestData(provider as InMemoryAuthorizationProvider);
-        client = AuthorizationClient(provider);
+        setupTestData(provider);
       });
 
-      test('should delegate to provider correctly', () async {
-        final data = await client.getAuthorization('admin123');
+      test('should work directly without client wrapper', () async {
+        final data = await provider.getAuthorization('admin123');
         expect(data.userId, equals('admin123'));
         expect(data.roles, containsAll(['admin', 'manager']));
       });
 
       test('should handle permission checks', () async {
-        expect(await client.hasPermission('admin123', 'user:create'), isTrue);
-        expect(await client.hasPermission('user456', 'user:create'), isFalse);
+        expect(await provider.hasPermission('admin123', 'user:create'), isTrue);
+        expect(await provider.hasPermission('user456', 'user:create'), isFalse);
       });
 
       test('should handle role checks', () async {
-        expect(await client.hasRole('admin123', 'admin'), isTrue);
-        expect(await client.hasRole('user456', 'admin'), isFalse);
+        expect(await provider.hasRole('admin123', 'admin'), isTrue);
+        expect(await provider.hasRole('user456', 'admin'), isFalse);
       });
 
       test('should handle batch operations', () async {
-        final permissionResults = await client.checkPermissions(
+        final permissionResults = await provider.checkPermissions(
           'admin123',
           ['user:create', 'user:delete', 'unknown:permission'],
         );

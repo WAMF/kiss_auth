@@ -78,7 +78,6 @@ Future<void> authorizationOnlyExample() async {
 
   // Simulate an external authorization service
   final authzProvider = MockAuthorizationProvider();
-  final authzClient = AuthorizationClient(authzProvider);
 
   const userId = 'user123';
   const resource = 'documents';
@@ -87,7 +86,7 @@ Future<void> authorizationOnlyExample() async {
     print('🔍 Checking authorization for user: $userId');
 
     // Get comprehensive authorization data
-    final authzData = await authzClient.getAuthorization(
+    final authzData = await authzProvider.getAuthorization(
       userId,
       resource: resource,
       action: 'edit',
