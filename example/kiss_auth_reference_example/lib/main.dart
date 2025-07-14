@@ -1,44 +1,24 @@
 import 'package:flutter/material.dart';
-
-import 'screens/home_screen.dart';
-import 'screens/login_screen.dart';
-import 'services/auth_service.dart';
-import 'setup_functions.dart';
+import 'package:kiss_auth_reference_example/screens/home_screen.dart';
+import 'package:kiss_auth_reference_example/screens/login_screen.dart';
+import 'package:kiss_auth_reference_example/services/auth_service.dart';
+import 'package:kiss_auth_reference_example/setup_functions.dart';
 
 void main() {
-  // Configure dependencies - easily swap implementations by changing this:
-  runApp(MyApp(setup: setupInMemoryProviders));
-
-  // To use different providers, just pass a different setup function:
-  // runApp(MyApp(setup: () => setupPocketBaseProviders(
-  //   baseUrl: 'http://localhost:8090',
-  //   jwtSecret: 'your-secret-key',
-  // )));
-
-  // Or for Firebase:
-  // runApp(MyApp(setup: () => setupFirebaseProviders(
-  //   firebaseConfig: 'your-config',
-  //   jwtSecret: 'your-secret-key',
-  // )));
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  final SetupFunction setup;
-
-  const MyApp({super.key, required this.setup});
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Call the setup function to configure dependencies
-    setup();
-
     return MaterialApp(
       title: 'Kiss Auth Reference Example',
       theme: ThemeData(
         colorScheme: const ColorScheme.light(
           primary: Color(0xFF0F172A),
           secondary: Color(0xFF64748B),
-          surface: Color(0xFFFFFFFF),
           surfaceContainerHighest: Color(0xFFF1F5F9),
           outline: Color(0xFFE2E8F0),
         ),
@@ -76,19 +56,20 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuthStatus() async {
+    setupInMemoryProviders();
     await _authService.initialize();
 
     if (!mounted) return;
 
     if (_authService.isAuthenticated && _authService.currentUser != null) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
           builder: (context) => HomeScreen(authData: _authService.currentUser!),
         ),
       );
     } else {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(builder: (context) => const LoginScreen()),
       );
     }
   }
@@ -103,7 +84,9 @@ class _SplashScreenState extends State<SplashScreen> {
             Icon(
               Icons.lock_outline,
               size: 64,
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.8),
             ),
             const SizedBox(height: 24),
             Text(

@@ -1,20 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:kiss_auth/kiss_authentication.dart';
-
-import '../services/auth_service.dart';
-import 'login_screen.dart';
+import 'package:kiss_auth_reference_example/screens/login_screen.dart';
+import 'package:kiss_auth_reference_example/services/auth_service.dart';
 
 class HomeScreen extends StatefulWidget {
+  const HomeScreen({required this.authData, super.key});
   final AuthenticationData authData;
-
-  const HomeScreen({super.key, required this.authData});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-
   @override
   Widget build(BuildContext context) {
     final authService = AuthService();
@@ -34,13 +31,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8.0),
+            padding: const EdgeInsets.only(right: 8),
             child: TextButton.icon(
               onPressed: () async {
                 await authService.logout();
                 if (context.mounted) {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
+                  await Navigator.of(context).pushReplacement(
+                    MaterialPageRoute<void>(
                       builder: (context) => const LoginScreen(),
                     ),
                   );
@@ -67,19 +64,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     gradient: LinearGradient(
                       colors: isDark
                           ? [
-                              Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                              Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                              Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.2),
+                              Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.1),
                             ]
                           : [
-                              Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
-                              Theme.of(context).colorScheme.primary.withValues(alpha: 0.04),
+                              Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.08),
+                              Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.04),
                             ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outline.withValues(alpha: 0.5),
                     ),
                   ),
                   child: Column(
@@ -109,13 +116,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const SizedBox(height: 4),
                                 Text(
                                   'You are successfully authenticated',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
+                                  style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .secondary,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.secondary,
                                       ),
                                 ),
                               ],
@@ -135,10 +140,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   icon: Icons.person_outline,
                   children: [
                     _buildInfoRow('User ID', widget.authData.userId),
-                    _buildInfoRow('Email',
-                        widget.authData.claims['email']?.toString() ?? 'N/A'),
-                    _buildInfoRow('Username',
-                        widget.authData.claims['username']?.toString() ?? 'N/A'),
+                    _buildInfoRow(
+                      'Email',
+                      widget.authData.claims['email']?.toString() ?? 'N/A',
+                    ),
+                    _buildInfoRow(
+                      'Username',
+                      widget.authData.claims['username']?.toString() ?? 'N/A',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -156,15 +165,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: (widget.authData.jwt
-                                    .getClaim<List<dynamic>>('roles') ??
-                                [])
-                            .map((role) => _buildBadge(
-                                  context,
-                                  role.toString(),
-                                  _getRoleColor(role.toString()),
-                                ))
-                            .toList(),
+                        children:
+                            (widget.authData.jwt.getClaim<List<dynamic>>(
+                                      'roles',
+                                    ) ??
+                                    [])
+                                .map(
+                                  (role) => _buildBadge(
+                                    context,
+                                    role.toString(),
+                                    _getRoleColor(role.toString()),
+                                  ),
+                                )
+                                .toList(),
                       )
                     else
                       Text(
@@ -191,15 +204,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: (authData.jwt
-                                    .getClaim<List<dynamic>>('permissions') ??
-                                [])
-                            .map((permission) => _buildBadge(
-                                  context,
-                                  permission.toString(),
-                                  Theme.of(context).colorScheme.secondary,
-                                ))
-                            .toList(),
+                        children:
+                            (authData.jwt.getClaim<List<dynamic>>(
+                                      'permissions',
+                                    ) ??
+                                    [])
+                                .map(
+                                  (permission) => _buildBadge(
+                                    context,
+                                    permission.toString(),
+                                    Theme.of(context).colorScheme.secondary,
+                                  ),
+                                )
+                                .toList(),
                       )
                     else
                       Text(
@@ -307,8 +324,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),

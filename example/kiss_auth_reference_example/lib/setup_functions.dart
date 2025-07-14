@@ -8,18 +8,16 @@ typedef SetupFunction = void Function();
 /// Setup dependencies for InMemory providers (default for testing)
 void setupInMemoryProviders() {
   const jwtSecret = 'default-test-secret';
-  
-  registerLazy<LoginProvider>(() => InMemoryLoginProvider(jwtSecret: jwtSecret));
 
-  registerLazy<AuthValidator>(
-    () => JwtAuthValidator.hmac(jwtSecret),
-  );
+  register<LoginProvider>(InMemoryLoginProvider.new);
 
-  registerLazy<AuthorizationProvider>(() => InMemoryAuthorizationProvider());
+  register<AuthValidator>(() => JwtAuthValidator.hmac(jwtSecret));
 
-  registerLazy<LoginService>(() => LoginService(resolve<LoginProvider>()));
+  register<AuthorizationProvider>(InMemoryAuthorizationProvider.new);
 
-  registerLazy<AuthorizationService>(
+  register<LoginService>(() => LoginService(resolve<LoginProvider>()));
+
+  register<AuthorizationService>(
     () => AuthorizationService(
       resolve<AuthValidator>(),
       resolve<AuthorizationProvider>(),
@@ -31,10 +29,7 @@ void setupInMemoryProviders() {
 
 /// Setup test data for InMemory providers
 void _setupInMemoryTestData() {
-  final authzProvider =
-      resolve<AuthorizationProvider>() as InMemoryAuthorizationProvider;
-
-  authzProvider
+  (resolve<AuthorizationProvider>() as InMemoryAuthorizationProvider)
     ..setUserData(
       'user_admin',
       const AuthorizationData(

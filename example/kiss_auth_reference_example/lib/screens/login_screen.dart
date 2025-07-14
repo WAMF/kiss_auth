@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../services/auth_service.dart';
-import 'home_screen.dart';
+import 'package:kiss_auth_reference_example/screens/home_screen.dart';
+import 'package:kiss_auth_reference_example/services/auth_service.dart';
+import 'package:kiss_auth_reference_example/setup_functions.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,6 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   bool _obscurePassword = true;
+  String _selectedProvider = 'In-Memory';
 
   @override
   void dispose() {
@@ -63,12 +65,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
           builder: (context) => HomeScreen(authData: authData),
         ),
       );
-    } catch (e) {
+    } on Exception catch (e) {
       if (mounted) {
         setState(() {
           _errorMessage = e.toString().replaceFirst('Exception: ', '');
@@ -81,6 +83,15 @@ class _LoginScreenState extends State<LoginScreen> {
   void _fillCredentials(String email, String password) {
     _emailController.text = email;
     _passwordController.text = password;
+  }
+
+  void _switchAuthProvider(String provider) {
+    switch (provider) {
+      case 'In-Memory':
+        setupInMemoryProviders();
+      default:
+        setupInMemoryProviders();
+    }
   }
 
   @override
@@ -121,6 +132,43 @@ class _LoginScreenState extends State<LoginScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 48),
+
+                  // Auth Provider Selection
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Authentication Provider',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: _selectedProvider,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.account_tree_outlined),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'In-Memory',
+                            child: Text('In-Memory (Testing)'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              _selectedProvider = value;
+                            });
+                            _switchAuthProvider(value);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
 
                   // Login Form
                   Column(
