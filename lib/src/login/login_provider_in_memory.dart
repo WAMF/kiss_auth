@@ -1,3 +1,4 @@
+import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart';
 import 'package:kiss_auth/src/login/login_credentials.dart';
 import 'package:kiss_auth/src/login/login_provider.dart';
 import 'package:kiss_auth/src/login/login_result.dart';
@@ -5,49 +6,74 @@ import 'package:kiss_auth/src/login/user_profile.dart';
 
 /// Simple in-memory login provider for testing and demos
 /// 
-/// This implementation stores user credentials and tokens in memory
-/// and should NOT be used in production environments.
+/// This implementation stores user credentials and generates JWT tokens
+/// for testing purposes with realistic delays to simulate network latency.
+/// Should NOT be used in production environments.
+/// 
+/// Simulated delays:
+/// - Authentication: 800-1200ms
+/// - Token refresh: 300-600ms  
+/// - Logout: 200-400ms
+/// - Token validation: 50-150ms
+/// - User ID extraction: 30-80ms
 class InMemoryLoginProvider implements LoginProvider {
-  /// Creates an in-memory login provider with optional test users
-  InMemoryLoginProvider({Map<String, TestUser>? testUsers})
-      : _users = testUsers ?? _defaultTestUsers();
+  /// Creates an in-memory login provider with optional test users and JWT secret
+  InMemoryLoginProvider({
+    Map<String, TestUser>? testUsers,
+    String? jwtSecret,
+  }) : _users = testUsers ?? _defaultTestUsers(),
+       _jwtSecret = jwtSecret ?? 'default-test-secret';
 
   final Map<String, TestUser> _users;
-  final Map<String, String> _tokens = {}; // token -> userId
+  final String _jwtSecret;
+  final Map<String, String> _tokens = {}; // token -> userId  
   final Map<String, String> _refreshTokens = {}; // refreshToken -> userId
 
   static Map<String, TestUser> _defaultTestUsers() {
+    const adminUser = TestUser(
+      id: 'user_admin',
+      username: 'admin',
+      email: 'admin@example.com',
+      password: 'admin123',
+      roles: ['admin', 'user'],
+      permissions: ['read', 'write', 'delete'],
+    );
+    
+    const regularUser = TestUser(
+      id: 'user_001',
+      username: 'user',
+      email: 'user@example.com',
+      password: 'user123',
+      roles: ['user'],
+      permissions: ['read'],
+    );
+    
+    const editorUser = TestUser(
+      id: 'user_002',
+      username: 'editor',
+      email: 'editor@example.com',
+      password: 'editor123',
+      roles: ['user', 'editor'],
+      permissions: ['read', 'write'],
+    );
+    
     return {
-      'admin': const TestUser(
-        id: 'user_admin',
-        username: 'admin',
-        email: 'admin@example.com',
-        password: 'admin123',
-        roles: ['admin', 'user'],
-        permissions: ['read', 'write', 'delete'],
-      ),
-      'user': const TestUser(
-        id: 'user_001',
-        username: 'user',
-        email: 'user@example.com',
-        password: 'user123',
-        roles: ['user'],
-        permissions: ['read'],
-      ),
-      'test@example.com': const TestUser(
-        id: 'user_002',
-        username: null,
-        email: 'test@example.com',
-        password: 'test123',
-        roles: ['user'],
-        permissions: ['read', 'write'],
-      ),
+      // Support lookup by username
+      'admin': adminUser,
+      'user': regularUser,
+      'editor': editorUser,
+      // Support lookup by email
+      'admin@example.com': adminUser,
+      'user@example.com': regularUser,
+      'editor@example.com': editorUser,
     };
   }
 
   @override
   Future<LoginResult> authenticate(LoginCredentials credentials) async {
-    await Future<void>.delayed(const Duration(milliseconds: 100)); // Simulate network
+    // Simulate realistic authentication processing time (800ms-1200ms)
+    final delay = 800 + (DateTime.now().millisecondsSinceEpoch % 400);
+    await Future<void>.delayed(Duration(milliseconds: delay));
 
     switch (credentials.type) {
       case 'username_password':
@@ -158,7 +184,19 @@ class InMemoryLoginProvider implements LoginProvider {
 
   LoginResult _authenticateAnonymously() {
     const userId = 'anonymous_user';
-    final accessToken = _generateToken(userId);
+    final now = DateTime.now();
+    
+    final jwt = JWT({
+      'sub': userId,
+      'roles': ['anonymous'],
+      'permissions': ['read'],
+      'auth_method': 'anonymous',
+      'iat': now.millisecondsSinceEpoch ~/ 1000,
+      'exp': now.add(const Duration(minutes: 30)).millisecondsSinceEpoch ~/ 1000,
+    });
+
+    final accessToken = jwt.sign(SecretKey(_jwtSecret));
+    _tokens[accessToken] = userId;
 
     return LoginResult.success(
       user: const UserProfile(
@@ -177,20 +215,44 @@ class InMemoryLoginProvider implements LoginProvider {
   }
 
   String _generateToken(String userId) {
-    final token = 'token_${DateTime.now().millisecondsSinceEpoch}_$userId';
+    final user = _users.values.firstWhere((u) => u.id == userId);
+    final now = DateTime.now();
+    
+    final jwt = JWT({
+      'sub': userId,
+      'email': user.email,
+      'username': user.username,
+      'roles': user.roles,
+      'permissions': user.permissions,
+      'iat': now.millisecondsSinceEpoch ~/ 1000,
+      'exp': now.add(const Duration(hours: 1)).millisecondsSinceEpoch ~/ 1000,
+    });
+
+    final token = jwt.sign(SecretKey(_jwtSecret));
     _tokens[token] = userId;
     return token;
   }
 
   String _generateRefreshToken(String userId) {
-    final refreshToken = 'refresh_${DateTime.now().millisecondsSinceEpoch}_$userId';
+    final now = DateTime.now();
+    
+    final jwt = JWT({
+      'sub': userId,
+      'type': 'refresh',
+      'iat': now.millisecondsSinceEpoch ~/ 1000,
+      'exp': now.add(const Duration(days: 7)).millisecondsSinceEpoch ~/ 1000,
+    });
+
+    final refreshToken = jwt.sign(SecretKey(_jwtSecret));
     _refreshTokens[refreshToken] = userId;
     return refreshToken;
   }
 
   @override
   Future<LoginResult> refreshToken(String refreshToken) async {
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    // Simulate token refresh processing (300ms-600ms)
+    final delay = 300 + (DateTime.now().millisecondsSinceEpoch % 300);
+    await Future<void>.delayed(Duration(milliseconds: delay));
 
     final userId = _refreshTokens[refreshToken];
     if (userId == null) {
@@ -241,12 +303,15 @@ class InMemoryLoginProvider implements LoginProvider {
 
   @override
   Future<bool> logout(String token) async {
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    // Simulate logout processing (200ms-400ms)
+    final delay = 200 + (DateTime.now().millisecondsSinceEpoch % 200);
+    await Future<void>.delayed(Duration(milliseconds: delay));
 
+    // Get userId before removing token
+    final userId = await getUserIdFromToken(token);
     final removed = _tokens.remove(token) != null;
     
     // Also remove any refresh tokens for this user
-    final userId = _tokens[token];
     if (userId != null) {
       _refreshTokens.removeWhere((_, id) => id == userId);
     }
@@ -256,14 +321,38 @@ class InMemoryLoginProvider implements LoginProvider {
 
   @override
   Future<bool> isTokenValid(String token) async {
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-    return _tokens.containsKey(token);
+    // Simulate token validation (50ms-150ms)
+    final delay = 50 + (DateTime.now().millisecondsSinceEpoch % 100);
+    await Future<void>.delayed(Duration(milliseconds: delay));
+    
+    try {
+      final jwt = JWT.verify(token, SecretKey(_jwtSecret));
+      final payload = jwt.payload as Map<String, dynamic>;
+      final exp = payload['exp'] as int?;
+      if (exp != null) {
+        final expiry = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+        if (expiry.isBefore(DateTime.now())) {
+          return false;
+        }
+      }
+      return _tokens.containsKey(token);
+    } on Exception {
+      return false;
+    }
   }
 
   @override
   Future<String?> getUserIdFromToken(String token) async {
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-    return _tokens[token];
+    // Simulate user ID extraction (30ms-80ms)
+    final delay = 30 + (DateTime.now().millisecondsSinceEpoch % 50);
+    await Future<void>.delayed(Duration(milliseconds: delay));
+    
+    try {
+      final jwt = JWT.verify(token, SecretKey(_jwtSecret));
+      return jwt.subject;
+    } on Exception {
+      return null;
+    }
   }
 
   @override
