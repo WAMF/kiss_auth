@@ -4,11 +4,38 @@ This guide explains how to create new provider packages for Kiss Auth. Each prov
 
 ## Overview
 
-Kiss Auth has three main interfaces that can be implemented:
+Kiss Auth has three main interfaces that can be implemented, each with different typical deployment patterns:
 
-1. **LoginProvider** - For credential-based authentication (getting tokens)
-2. **AuthValidator** - For token validation (validating tokens)  
-3. **AuthorizationProvider** - For role/permission checking (authorization)
+1. **LoginProvider** - For credential-based authentication (getting tokens) - **Typically Client-Side**
+2. **AuthValidator** - For token validation (validating tokens) - **Typically Server-Side**
+3. **AuthorizationProvider** - For role/permission checking (authorization) - **Typically Server-Side**
+
+## Client-Side vs Server-Side Usage
+
+### Client-Side Components (Mobile Apps, Web Frontends)
+
+**Primary Use Cases:**
+- User authentication flows (login screens, signup forms)
+- Token acquisition and local storage
+- Basic user session management
+
+**Key Classes:**
+- `LoginProvider` implementations (Firebase, Auth0, PocketBase, etc.)
+- `LoginService` - High-level authentication service
+- `LoginCredentials` types (username/password, email/password, OAuth)
+- `AuthService` (reference example) - Complete client-side authentication manager
+
+### Server-Side Components (API Servers, Backend Services)
+
+**Primary Use Cases:**
+- API endpoint protection and middleware
+- Request authorization and permission checking
+- Server-side token validation
+
+**Key Classes:**
+- `AuthValidator` implementations (JWT validation)
+- `AuthorizationProvider` implementations (permission/role checking)
+- `AuthorizationService` - Combined authentication + authorization service
 
 ## Package Naming Convention
 
@@ -22,7 +49,9 @@ Follow this naming pattern for consistency:
 
 ### 1. LoginProvider Interface
 
-**Purpose**: Handle credential-based authentication and token generation.
+**Purpose**: Handle credential-based authentication and token generation.  
+**Typical Usage**: **Client-Side** (mobile apps, web frontends)  
+**Deployment**: User-facing applications where users enter credentials
 
 ```dart
 abstract class LoginProvider {
@@ -55,7 +84,9 @@ abstract class LoginProvider {
 
 ### 2. AuthValidator Interface
 
-**Purpose**: Validate JWT tokens and extract identity information.
+**Purpose**: Validate JWT tokens and extract identity information.  
+**Typical Usage**: **Server-Side** (API servers, backend services)  
+**Deployment**: API middleware, request validation, server-side token verification
 
 ```dart
 abstract class AuthValidator {
@@ -66,7 +97,9 @@ abstract class AuthValidator {
 
 ### 3. AuthorizationProvider Interface
 
-**Purpose**: Provide role-based and permission-based access control.
+**Purpose**: Provide role-based and permission-based access control.  
+**Typical Usage**: **Server-Side** (API servers, backend services)  
+**Deployment**: API endpoint protection, business logic authorization, resource access control
 
 ```dart
 abstract class AuthorizationProvider {
@@ -130,6 +163,132 @@ abstract class AuthorizationProvider {
     String? resource,
     Map<String, dynamic>? context,
   });
+}
+```
+
+## Deployment Patterns & Examples
+
+### Client-Side Deployment Pattern
+
+**Typical Architecture:**
+```
+Mobile App / Web Frontend
+├── Login Screen (UI)
+├── AuthService (token management)
+├── LoginProvider (external auth)
+└── Local Storage (secure token storage)
+```
+
+**Example Client-Side Flow:**
+```dart
+// Client-side authentication service
+class ClientAuthService {
+  final LoginProvider _loginProvider;
+  final SecureStorage _storage;
+  
+  ClientAuthService(this._loginProvider, this._storage);
+  
+  Future<User?> login(String email, String password) async {
+    final credentials = EmailPasswordCredentials(email, password);
+    final result = await _loginProvider.authenticate(credentials);
+    
+    if (result.isSuccess) {
+      // Store tokens securely on device
+      await _storage.store('access_token', result.accessToken);
+      await _storage.store('refresh_token', result.refreshToken);
+      return result.user;
+    }
+    return null;
+  }
+}
+
+// Flutter/Web usage
+final authService = ClientAuthService(
+  FirebaseLoginProvider(config: firebaseConfig),
+  SecureStorage(),
+);
+```
+
+### Server-Side Deployment Pattern
+
+**Typical Architecture:**
+```
+API Server / Backend Service
+├── Authentication Middleware
+├── Authorization Middleware  
+├── AuthValidator (JWT validation)
+├── AuthorizationProvider (permissions)
+└── Business Logic (protected endpoints)
+```
+
+**Example Server-Side Flow:**
+```dart
+// Server-side authorization middleware
+class AuthMiddleware {
+  final AuthValidator _authValidator;
+  final AuthorizationProvider _authzProvider;
+  
+  AuthMiddleware(this._authValidator, this._authzProvider);
+  
+  Future<bool> authorizeRequest(String token, String permission) async {
+    try {
+      // Validate the token
+      final authData = await _authValidator.validateToken(token);
+      
+      // Check permission
+      return await _authzProvider.hasPermission(
+        authData.userId, 
+        permission
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+}
+
+// Express.js/Shelf usage
+final middleware = AuthMiddleware(
+  JwtAuthValidator.hmac(secretKey),
+  DatabaseAuthorizationProvider(db),
+);
+```
+
+### Full-Stack Example
+
+**Client-Side (Flutter App):**
+```dart
+// 1. User login on mobile app
+final loginService = LoginService(Auth0LoginProvider(config));
+final result = await loginService.loginWithEmail('user@example.com', 'password');
+
+// 2. Store JWT token locally
+await storage.store('jwt_token', result.accessToken);
+
+// 3. Include token in API requests
+final response = await http.get(
+  '/api/protected-resource',
+  headers: {'Authorization': 'Bearer ${result.accessToken}'},
+);
+```
+
+**Server-Side (Dart API):**
+```dart
+// 1. Validate incoming JWT token
+final authValidator = JwtAuthValidator.hmac(jwtSecret);
+final authData = await authValidator.validateToken(incomingToken);
+
+// 2. Check user permissions
+final authzProvider = DatabaseAuthorizationProvider();
+final hasAccess = await authzProvider.hasPermission(
+  authData.userId, 
+  'resource:read'
+);
+
+// 3. Process request or return 403
+if (hasAccess) {
+  return await processRequest();
+} else {
+  return Response.forbidden('Insufficient permissions');
 }
 ```
 
@@ -470,21 +629,76 @@ void main() {
 
 ## Best Practices
 
+### Client-Side Security
+- **Token Storage**: Use secure storage mechanisms (Keychain, encrypted SharedPreferences)
+- **No Secrets**: Never store JWT signing secrets or API keys in client code
+- **Token Refresh**: Implement automatic token refresh before expiration
+- **Secure Communication**: Always use HTTPS for authentication requests
+- **Local Validation**: Basic token expiration checking before API calls
+
+**Example Secure Client Implementation:**
+```dart
+class SecureAuthService {
+  final SecureStorage _storage;
+  
+  Future<String?> getValidToken() async {
+    final token = await _storage.getSecure('access_token');
+    if (token != null && !isTokenExpired(token)) {
+      return token;
+    }
+    
+    // Attempt refresh if token is expired
+    return await refreshTokenIfNeeded();
+  }
+}
+```
+
+### Server-Side Security
+- **Secret Protection**: Securely store and manage JWT signing secrets
+- **Token Validation**: Always validate incoming tokens before processing requests
+- **Permission Checking**: Verify user permissions for each protected resource
+- **Rate Limiting**: Implement rate limiting for authorization endpoints
+- **Audit Logging**: Log authorization failures for security monitoring
+
+**Example Secure Server Implementation:**
+```dart
+class SecureAuthMiddleware {
+  final AuthValidator _validator;
+  final AuthorizationProvider _authzProvider;
+  
+  Future<AuthResult> authorize(String token, String permission) async {
+    try {
+      // 1. Validate token signature and expiration
+      final authData = await _validator.validateToken(token);
+      
+      // 2. Check user permissions
+      final hasPermission = await _authzProvider.hasPermission(
+        authData.userId, 
+        permission
+      );
+      
+      if (!hasPermission) {
+        _auditLog.logUnauthorizedAccess(authData.userId, permission);
+      }
+      
+      return AuthResult(success: hasPermission, user: authData);
+    } catch (e) {
+      _auditLog.logAuthenticationFailure(token, e);
+      return AuthResult(success: false);
+    }
+  }
+}
+```
+
 ### Error Handling
 - Use specific error codes for different failure scenarios
 - Provide meaningful error messages
 - Handle network timeouts and service unavailability
 
 ### Performance
-- Implement caching where appropriate
-- Use batch operations for multiple checks
+- **Client-Side**: Cache user permissions locally, implement token refresh strategies
+- **Server-Side**: Use caching for authorization data, implement batch operations
 - Consider connection pooling for HTTP clients
-
-### Security
-- Never log sensitive information (passwords, tokens)
-- Validate all inputs
-- Use secure HTTP (HTTPS) for all API calls
-- Implement proper token expiration handling
 
 ### Configuration
 - Support environment-based configuration
@@ -514,3 +728,45 @@ Study these reference implementations in the Kiss Auth core package:
 - **JwtAuthValidator** - JWT validation implementation
 
 These provide working examples of all interfaces and demonstrate best practices for error handling, testing, and documentation.
+
+## Quick Reference: Client vs Server Usage
+
+### Client-Side (Mobile Apps, Web Frontends)
+```dart
+// What you typically implement on client-side:
+- LoginProvider implementations (Firebase, Auth0, etc.)
+- LoginService (high-level auth operations)
+- AuthService (token management, persistence)
+- LoginCredentials (user input handling)
+
+// What you DON'T put on client-side:
+- JWT signing secrets
+- AuthValidator implementations
+- AuthorizationProvider implementations
+- Server-side authorization logic
+```
+
+### Server-Side (API Servers, Backend Services)
+```dart
+// What you typically implement on server-side:
+- AuthValidator implementations (JWT validation)
+- AuthorizationProvider implementations (permissions)
+- AuthorizationService (combined auth + authz)
+- API middleware for endpoint protection
+
+// What you DON'T put on server-side:
+- User credential collection logic
+- LoginProvider implementations (unless SSO)
+- Client-side token storage
+- User interface components
+```
+
+### Shared Components (Both Sides)
+```dart
+// Data classes used on both client and server:
+- AuthenticationData (token validation results)
+- AuthorizationData (user permissions and roles)
+- LoginResult (authentication operation results)
+- UserProfile (user identity information)
+- JWT-related data classes
+```
