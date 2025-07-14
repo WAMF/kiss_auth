@@ -1,6 +1,6 @@
-import 'package:kiss_dependencies/kiss_dependencies.dart';
-import 'package:kiss_auth/kiss_login.dart';
 import 'package:kiss_auth/kiss_authorization.dart';
+import 'package:kiss_auth/kiss_login.dart';
+import 'package:kiss_dependencies/kiss_dependencies.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
@@ -24,7 +24,7 @@ class AuthService {
         
         _currentAuthData = await authValidator.validateToken(token);
         _currentAuthContext = await authorizationService.authorize(token);
-      } catch (e) {
+      } on Exception {
         await prefs.remove(_tokenKey);
       }
     }
@@ -71,7 +71,7 @@ class AuthService {
       try {
         final loginProvider = resolve<LoginProvider>();
         await loginProvider.logout(token);
-      } catch (e) {
+      } on Exception {
         // Continue with local logout even if provider logout fails
       }
     }
