@@ -1,243 +1,419 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:kiss_auth/kiss_authorization.dart';
+import 'package:kiss_auth/kiss_authentication.dart';
+
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final AuthenticationData authData;
-  final AuthService _authService = AuthService();
 
-  HomeScreen({super.key, required this.authData});
+  const HomeScreen({super.key, required this.authData});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authService = AuthService();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final authData = widget.authData; // Cache the authData reference
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Kiss Auth Reference Example'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 0,
+        title: Text(
+          'Kiss Auth Dashboard',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await _authService.logout();
-              if (context.mounted) {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => const LoginScreen(),
-                  ),
-                );
-              }
-            },
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: TextButton.icon(
+              onPressed: () async {
+                await authService.logout();
+                if (context.mounted) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.logout, size: 18),
+              label: const Text('Sign Out'),
+            ),
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildWelcomeCard(context),
-            const SizedBox(height: 16),
-            _buildAuthenticationCard(context),
-            const SizedBox(height: 16),
-            _buildAuthorizationCard(context),
-            const SizedBox(height: 16),
-            _buildClaimsCard(context),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWelcomeCard(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Welcome to Kiss Auth!',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This reference example demonstrates all three Kiss Auth modules working together with dependency injection. You can easily swap providers by changing the configuration in main.dart.',
-            ),
-            const SizedBox(height: 16),
-            Row(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Icons.check_circle, color: Colors.green),
-                const SizedBox(width: 8),
-                const Text('Login Module - Getting tokens with credentials'),
+                // Welcome Section
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isDark
+                          ? [
+                              Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                              Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                            ]
+                          : [
+                              Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                              Theme.of(context).colorScheme.primary.withValues(alpha: 0.04),
+                            ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.verified_user,
+                            size: 32,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Welcome back!',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'You are successfully authenticated',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .secondary,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // User Info Section
+                _buildSection(
+                  context,
+                  title: 'User Information',
+                  icon: Icons.person_outline,
+                  children: [
+                    _buildInfoRow('User ID', widget.authData.userId),
+                    _buildInfoRow('Email',
+                        widget.authData.claims['email']?.toString() ?? 'N/A'),
+                    _buildInfoRow('Username',
+                        widget.authData.claims['username']?.toString() ?? 'N/A'),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Roles Section
+                _buildSection(
+                  context,
+                  title: 'Roles',
+                  icon: Icons.admin_panel_settings_outlined,
+                  children: [
+                    if (widget.authData.jwt
+                            .getClaim<List<dynamic>>('roles')
+                            ?.isNotEmpty ??
+                        false)
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: (widget.authData.jwt
+                                    .getClaim<List<dynamic>>('roles') ??
+                                [])
+                            .map((role) => _buildBadge(
+                                  context,
+                                  role.toString(),
+                                  _getRoleColor(role.toString()),
+                                ))
+                            .toList(),
+                      )
+                    else
+                      Text(
+                        'No roles assigned',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.secondary,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Permissions Section
+                _buildSection(
+                  context,
+                  title: 'Permissions',
+                  icon: Icons.security_outlined,
+                  children: [
+                    if (authData.jwt
+                            .getClaim<List<dynamic>>('permissions')
+                            ?.isNotEmpty ??
+                        false)
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: (authData.jwt
+                                    .getClaim<List<dynamic>>('permissions') ??
+                                [])
+                            .map((permission) => _buildBadge(
+                                  context,
+                                  permission.toString(),
+                                  Theme.of(context).colorScheme.secondary,
+                                ))
+                            .toList(),
+                      )
+                    else
+                      Text(
+                        'No permissions assigned',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.secondary,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Token Info Section
+                _buildSection(
+                  context,
+                  title: 'Token Information',
+                  icon: Icons.key_outlined,
+                  children: [
+                    _buildInfoRow(
+                      'Issued At',
+                      authData.jwt.issuedAt != null
+                          ? _formatDate(authData.jwt.issuedAt!)
+                          : 'N/A',
+                    ),
+                    _buildInfoRow(
+                      'Expires At',
+                      authData.jwt.expiration != null
+                          ? _formatDate(authData.jwt.expiration!)
+                          : 'N/A',
+                    ),
+                    if (authData.jwt.expiration != null)
+                      _buildInfoRow(
+                        'Time Remaining',
+                        _getTimeRemaining(authData.jwt.expiration!),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Authorization Context Section
+                if (authService.currentAuthContext != null) ...[
+                  _buildSection(
+                    context,
+                    title: 'Authorization Context',
+                    icon: Icons.shield_outlined,
+                    children: [
+                      _buildInfoRow(
+                        'Provider Roles',
+                        authService.currentAuthContext!.authzRoles.join(', '),
+                      ),
+                      _buildInfoRow(
+                        'All Roles',
+                        authService.currentAuthContext!.allRoles.join(', '),
+                      ),
+                      _buildInfoRow(
+                        'Provider Permissions',
+                        authService.currentAuthContext!.permissions.join(', '),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.green),
-                const SizedBox(width: 8),
-                const Text('Authentication Module - Validating JWT tokens'),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.green),
-                const SizedBox(width: 8),
-                const Text('Authorization Module - Role/permission checks'),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAuthenticationCard(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Authentication Data',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 16),
-            _buildInfoRow('User ID', authData.userId),
-            _buildInfoRow('Provider', 'InMemoryLoginProvider'),
-            _buildInfoRow('Token Type', 'JWT'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAuthorizationCard(BuildContext context) {
-    final authContext = _authService.currentAuthContext;
-    if (authContext == null) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Authorization Data',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 16),
-              const Text('Authorization context not available'),
-            ],
           ),
         ),
-      );
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Authorization Data',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 16),
-            _buildInfoRow('JWT Roles', authContext.tokenRoles.join(', ')),
-            _buildInfoRow('Service Roles', authContext.authzRoles.join(', ')),
-            _buildInfoRow('All Roles', authContext.allRoles.join(', ')),
-            _buildInfoRow('Permissions', authContext.permissions.join(', ')),
-            const SizedBox(height: 16),
-            Text(
-              'Permission Checks:',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            _buildPermissionCheck(authContext, 'user:read'),
-            _buildPermissionCheck(authContext, 'user:create'),
-            _buildPermissionCheck(authContext, 'user:delete'),
-            _buildPermissionCheck(authContext, 'content:edit'),
-          ],
-        ),
       ),
     );
   }
 
-  Widget _buildPermissionCheck(AuthorizationContext context, String permission) {
-    final hasPermission = context.hasPermission(permission);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: Row(
+  Widget _buildSection(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(
-            hasPermission ? Icons.check_circle : Icons.cancel,
-            color: hasPermission ? Colors.green : Colors.red,
-            size: 16,
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(11),
+                topRight: Radius.circular(11),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(width: 8),
-          Text('$permission: ${hasPermission ? 'Allowed' : 'Denied'}'),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildClaimsCard(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'JWT Claims',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: SelectableText(
-                _prettyPrintJson(authData.claims),
-                style: const TextStyle(fontFamily: 'monospace'),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
 
   Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+    return Builder(
+      builder: (context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 120,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+              ),
             ),
-          ),
-          Expanded(
-            child: Text(value),
-          ),
-        ],
+            Expanded(
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  String _prettyPrintJson(Map<String, dynamic> json) {
-    const encoder = JsonEncoder.withIndent('  ');
-    return encoder.convert(json);
+  Widget _buildBadge(BuildContext context, String text, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.2 : 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: color.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: isDark ? color.withValues(alpha: 0.9) : color,
+        ),
+      ),
+    );
+  }
+
+  Color _getRoleColor(String role) {
+    switch (role.toLowerCase()) {
+      case 'admin':
+        return Colors.purple;
+      case 'editor':
+        return Colors.blue;
+      case 'user':
+        return Colors.green;
+      case 'manager':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} '
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}';
+  }
+
+  String _getTimeRemaining(DateTime expiration) {
+    final now = DateTime.now();
+    final difference = expiration.difference(now);
+
+    if (difference.isNegative) {
+      return 'Expired';
+    }
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays} days';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hours';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minutes';
+    } else {
+      return '${difference.inSeconds} seconds';
+    }
   }
 }

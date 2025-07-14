@@ -35,7 +35,23 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Kiss Auth Reference Example',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFF0F172A),
+          secondary: Color(0xFF64748B),
+          surface: Color(0xFFFFFFFF),
+          surfaceContainerHighest: Color(0xFFF1F5F9),
+          outline: Color(0xFFE2E8F0),
+        ),
+        useMaterial3: true,
+      ),
+      darkTheme: ThemeData(
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFFE2E8F0),
+          secondary: Color(0xFF94A3B8),
+          surface: Color(0xFF020817),
+          surfaceContainerHighest: Color(0xFF0F172A),
+          outline: Color(0xFF334155),
+        ),
         useMaterial3: true,
       ),
       home: const SplashScreen(),
@@ -79,6 +95,39 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.lock_outline,
+              size: 64,
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Kiss Auth',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Loading...',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+            ),
+            const SizedBox(height: 32),
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
