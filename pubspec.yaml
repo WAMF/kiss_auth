@@ -1,7 +1,7 @@
 name: kiss_auth
-description: A starting point for Dart libraries or applications.
+description: A modular authentication and authorization interface for Dart applications.
 version: 0.1.0
-# repository: https://github.com/my_org/my_repo
+repository: https://github.com/WAMF/kiss_auth
 
 environment:
   sdk: ^3.8.1
