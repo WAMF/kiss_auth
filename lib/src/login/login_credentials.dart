@@ -188,6 +188,62 @@ class OAuthCredentials extends LoginCredentials {
   String toString() => 'OAuthCredentials(provider: $provider)';
 }
 
+/// User creation credentials for email/password registration
+@immutable
+class UserCreationCredentials extends LoginCredentials {
+  /// Creates user creation credentials
+  const UserCreationCredentials({
+    required this.email,
+    required this.password,
+    this.displayName,
+    this.additionalData,
+  });
+
+  /// The email for the new user
+  final String email;
+
+  /// The password for the new user
+  final String password;
+
+  /// Optional display name for the new user
+  final String? displayName;
+
+  /// Optional additional data for user creation
+  final Map<String, dynamic>? additionalData;
+
+  @override
+  String get type => 'user_creation';
+
+  @override
+  Map<String, dynamic> toMap() => {
+        'type': type,
+        'email': email,
+        'password': password,
+        if (displayName != null) 'display_name': displayName,
+        if (additionalData != null) 'additional_data': additionalData,
+      };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UserCreationCredentials &&
+          runtimeType == other.runtimeType &&
+          email == other.email &&
+          password == other.password &&
+          displayName == other.displayName &&
+          additionalData == other.additionalData;
+
+  @override
+  int get hashCode =>
+      email.hashCode ^
+      password.hashCode ^
+      displayName.hashCode ^
+      additionalData.hashCode;
+
+  @override
+  String toString() => 'UserCreationCredentials(email: $email, displayName: $displayName)';
+}
+
 /// Anonymous credentials (for guest/anonymous login)
 @immutable
 class AnonymousCredentials extends LoginCredentials {

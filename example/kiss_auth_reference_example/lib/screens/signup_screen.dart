@@ -1,42 +1,46 @@
 import 'package:flutter/material.dart';
 
 import 'package:kiss_auth_reference_example/screens/home_screen.dart';
-import 'package:kiss_auth_reference_example/screens/signup_screen.dart';
 import 'package:kiss_auth_reference_example/services/auth_service.dart';
-import 'package:kiss_auth_reference_example/setup_functions.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class SignupScreen extends StatefulWidget {
+  const SignupScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<SignupScreen> createState() => _SignupScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _SignupScreenState extends State<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _displayNameController = TextEditingController();
   final _authService = AuthService();
   bool _isLoading = false;
   String? _errorMessage;
   bool _obscurePassword = true;
-  String _selectedProvider = 'In-Memory';
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _displayNameController.dispose();
     super.dispose();
   }
 
-  Future<void> _login() async {
+  Future<void> _signup() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+    final displayName = _displayNameController.text.trim();
 
     // Validation
-    if (email.isEmpty || password.isEmpty) {
+    if (email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Please enter both email and password';
+          _errorMessage = 'Please fill in all required fields';
         });
       }
       return;
@@ -51,6 +55,24 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    if (password.length < 6) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Password must be at least 6 characters';
+        });
+      }
+      return;
+    }
+
+    if (password != confirmPassword) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Passwords do not match';
+        });
+      }
+      return;
+    }
+
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -59,9 +81,10 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     try {
-      final authData = await _authService.login(
+      final authData = await _authService.signup(
         email: email,
         password: password,
+        displayName: displayName.isNotEmpty ? displayName : null,
       );
 
       if (!mounted) return;
@@ -81,25 +104,16 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _fillCredentials(String email, String password) {
-    _emailController.text = email;
-    _passwordController.text = password;
-  }
-
-  void _switchAuthProvider(String provider) {
-    switch (provider) {
-      case 'In-Memory':
-        setupInMemoryProviders();
-      default:
-        setupInMemoryProviders();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Sign Up'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -112,13 +126,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   // Logo and Title
                   Icon(
-                    Icons.shield_outlined,
+                    Icons.person_add_outlined,
                     size: 48,
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Welcome back',
+                    'Create Account',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -126,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Sign in to your account to continue',
+                    'Sign up to get started',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.secondary,
                         ),
@@ -134,53 +148,40 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 48),
 
-                  // Auth Provider Selection
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Authentication Provider',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        value: _selectedProvider,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.account_tree_outlined),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'In-Memory',
-                            child: Text('In-Memory (Testing)'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _selectedProvider = value;
-                            });
-                            _switchAuthProvider(value);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Login Form
+                  // Signup Form
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Display Name Field
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Display Name (Optional)',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _displayNameController,
+                            decoration: const InputDecoration(
+                              hintText: 'Enter your display name',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.person_outline),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
                       // Email Field
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Email',
+                            'Email *',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -205,7 +206,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Password',
+                            'Password *',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -214,26 +215,61 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 8),
                           TextFormField(
                             controller: _passwordController,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'Enter your password',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.lock_outlined),
-                            ),
-                            obscureText: _obscurePassword,
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Checkbox(
-                                value: !_obscurePassword,
-                                onChanged: (value) {
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.lock_outlined),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                onPressed: () {
                                   setState(() {
-                                    _obscurePassword = !(value ?? false);
+                                    _obscurePassword = !_obscurePassword;
                                   });
                                 },
                               ),
-                              const Text('Show password'),
-                            ],
+                            ),
+                            obscureText: _obscurePassword,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Confirm Password Field
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Confirm Password *',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _confirmPasswordController,
+                            decoration: InputDecoration(
+                              hintText: 'Confirm your password',
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.lock_outlined),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureConfirmPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscureConfirmPassword = !_obscureConfirmPassword;
+                                  });
+                                },
+                              ),
+                            ),
+                            obscureText: _obscureConfirmPassword,
                           ),
                         ],
                       ),
@@ -281,12 +317,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 16),
                       ],
                       
-                      // Sign In Button
+                      // Sign Up Button
                       SizedBox(
                         width: double.infinity,
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: _isLoading ? null : _login,
+                          onPressed: _isLoading ? null : _signup,
                           child: _isLoading
                               ? const SizedBox(
                                   width: 20,
@@ -298,87 +334,26 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                                 )
-                              : const Text('Sign In'),
+                              : const Text('Sign Up'),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 32),
-
-                  // Demo Credentials
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              size: 16,
-                              color: Theme.of(context).colorScheme.secondary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Demo Credentials',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        _buildCredentialButton(
-                          'Admin',
-                          'admin@example.com',
-                          'admin123',
-                          Colors.purple,
-                        ),
-                        const SizedBox(height: 8),
-                        _buildCredentialButton(
-                          'Editor',
-                          'editor@example.com',
-                          'editor123',
-                          Colors.blue,
-                        ),
-                        const SizedBox(height: 8),
-                        _buildCredentialButton(
-                          'User',
-                          'user@example.com',
-                          'user123',
-                          Colors.green,
-                        ),
-                      ],
-                    ),
-                  ),
                   const SizedBox(height: 24),
 
-                  // Sign Up Link
+                  // Sign In Link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        "Don't have an account? ",
+                        'Already have an account? ',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       TextButton(
                         onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (context) => const SignupScreen(),
-                            ),
-                          );
+                          Navigator.of(context).pop();
                         },
-                        child: const Text('Sign Up'),
+                        child: const Text('Sign In'),
                       ),
                     ],
                   ),
@@ -386,63 +361,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCredentialButton(
-    String role,
-    String email,
-    String password,
-    Color color,
-  ) {
-    return SizedBox(
-      width: double.infinity,
-      child: TextButton(
-        onPressed: () => _fillCredentials(email, password),
-        style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          alignment: Alignment.centerLeft,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    role,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
-                  Text(
-                    email,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward,
-              size: 16,
-              color: Theme.of(context).colorScheme.secondary,
-            ),
-          ],
         ),
       ),
     );
