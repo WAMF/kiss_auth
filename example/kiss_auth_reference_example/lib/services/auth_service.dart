@@ -59,8 +59,32 @@ class AuthService {
   Future<AuthenticationData> signup({
     required String email,
     required String password,
+    String? displayName,
   }) async {
-    return login(email: email, password: password);
+    final loginService = resolve<LoginService>();
+    final authValidator = resolve<AuthValidator>();
+    final authorizationService = resolve<AuthorizationService>();
+    
+    final signupResult = await loginService.createUserWithEmail(
+      email: email,
+      password: password,
+      displayName: displayName,
+    );
+    
+    if (!signupResult.isSuccess) {
+      throw Exception(signupResult.error ?? 'Signup failed');
+    }
+    
+    final authData = await authValidator.validateToken(signupResult.accessToken!);
+    _currentAuthData = authData;
+    _currentAuthContext = await authorizationService.authorize(signupResult.accessToken!);
+    
+    if (signupResult.accessToken != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, signupResult.accessToken!);
+    }
+    
+    return authData;
   }
   
   Future<void> logout() async {
