@@ -41,6 +41,13 @@ abstract class LoginProvider {
   /// For full validation, use the AuthValidator from the authentication module.
   Future<String?> getUserIdFromToken(String token);
 
+  /// Create a new user account
+  /// 
+  /// Creates a new user with the provided credentials and returns a [LoginResult]
+  /// with the user's identity and initial tokens on success.
+  /// Returns error information if user creation fails.
+  Future<LoginResult> createUser(LoginCredentials credentials);
+
   /// Get provider-specific configuration information
   /// 
   /// Returns metadata about the provider (name, version, capabilities, etc.)

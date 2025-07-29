@@ -85,6 +85,38 @@ class LoginService {
     return login(credentials);
   }
 
+  /// Create a new user account
+  /// 
+  /// Returns a [LoginResult] with user identity and tokens on success.
+  Future<LoginResult> createUser(LoginCredentials credentials) async {
+    try {
+      return await _provider.createUser(credentials);
+    } on Exception catch (e) {
+      return LoginResult.failure(
+        error: 'User creation failed: $e',
+        errorCode: 'user_creation_error',
+      );
+    }
+  }
+
+  /// Create user with email and password
+  /// 
+  /// Convenience method for email/password user creation.
+  Future<LoginResult> createUserWithEmail({
+    required String email,
+    required String password,
+    String? displayName,
+    Map<String, dynamic>? additionalData,
+  }) async {
+    final credentials = UserCreationCredentials(
+      email: email,
+      password: password,
+      displayName: displayName,
+      additionalData: additionalData,
+    );
+    return createUser(credentials);
+  }
+
   /// Refresh an access token
   /// 
   /// Returns a new [LoginResult] with fresh tokens.

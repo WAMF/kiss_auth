@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:kiss_auth_reference_example/screens/home_screen.dart';
+import 'package:kiss_auth_reference_example/screens/signup_screen.dart';
 import 'package:kiss_auth_reference_example/services/auth_service.dart';
 import 'package:kiss_auth_reference_example/setup_functions.dart';
 
@@ -358,6 +359,28 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Sign Up Link
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "Don't have an account? ",
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (context) => const SignupScreen(),
+                            ),
+                          );
+                        },
+                        child: const Text('Sign Up'),
+                      ),
+                    ],
                   ),
                 ],
               ),

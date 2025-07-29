@@ -356,12 +356,76 @@ class InMemoryLoginProvider implements LoginProvider {
   }
 
   @override
+  Future<LoginResult> createUser(LoginCredentials credentials) async {
+    // Simulate user creation processing time (600ms-1000ms)
+    final delay = 600 + (DateTime.now().millisecondsSinceEpoch % 400);
+    await Future<void>.delayed(Duration(milliseconds: delay));
+
+    if (credentials.type != 'user_creation') {
+      return LoginResult.failure(
+        error: 'Invalid credential type for user creation',
+        errorCode: 'invalid_credential_type',
+      );
+    }
+
+    final creds = credentials as UserCreationCredentials;
+    
+    // Check if user already exists
+    if (_users.containsKey(creds.email)) {
+      return LoginResult.failure(
+        error: 'User already exists',
+        errorCode: 'user_already_exists',
+      );
+    }
+
+    // Generate new user ID
+    final userId = 'user_${DateTime.now().millisecondsSinceEpoch}';
+    
+    // Create new user with default roles and permissions
+    final newUser = TestUser(
+      id: userId,
+      username: creds.displayName,
+      email: creds.email,
+      password: creds.password,
+      roles: const ['user'],
+      permissions: const ['read'],
+    );
+
+    // Store user (by email for lookup)
+    _users[creds.email] = newUser;
+
+    // Generate initial tokens
+    final accessToken = _generateToken(userId);
+    final refreshToken = _generateRefreshToken(userId);
+
+    return LoginResult.success(
+      user: UserProfile(
+        userId: userId,
+        email: creds.email,
+        username: creds.displayName,
+        roles: const ['user'],
+        permissions: const ['read'],
+        claims: {
+          'email': creds.email,
+          'username': creds.displayName,
+          'roles': const ['user'],
+          'permissions': const ['read'],
+          'created_at': DateTime.now().toIso8601String(),
+        },
+      ),
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      expiresIn: 3600,
+    );
+  }
+
+  @override
   Map<String, dynamic> getProviderInfo() {
     return {
       'name': 'InMemoryLoginProvider',
       'version': '1.0.0',
       'type': 'testing',
-      'capabilities': ['username_password', 'email_password', 'api_key', 'anonymous'],
+      'capabilities': ['username_password', 'email_password', 'api_key', 'anonymous', 'user_creation'],
       'user_count': _users.length,
     };
   }
