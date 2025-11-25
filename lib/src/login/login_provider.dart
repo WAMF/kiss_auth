@@ -1,5 +1,6 @@
 import 'package:kiss_auth/src/login/login_credentials.dart';
 import 'package:kiss_auth/src/login/login_result.dart';
+import 'package:kiss_auth/src/login/password_reset_result.dart';
 
 /// Abstract interface for login providers
 /// 
@@ -49,7 +50,13 @@ abstract class LoginProvider {
   Future<LoginResult> createUser(LoginCredentials credentials);
 
   /// Get provider-specific configuration information
-  /// 
+  ///
   /// Returns metadata about the provider (name, version, capabilities, etc.)
   Map<String, dynamic> getProviderInfo();
+
+  /// Request a password reset for the given email
+  ///
+  /// Sends a password reset email or link to the user.
+  /// Returns a [PasswordResetResult] indicating success or failure.
+  Future<PasswordResetResult> resetPassword(String email);
 }

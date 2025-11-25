@@ -2,6 +2,7 @@ import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart';
 import 'package:kiss_auth/src/login/login_credentials.dart';
 import 'package:kiss_auth/src/login/login_provider.dart';
 import 'package:kiss_auth/src/login/login_result.dart';
+import 'package:kiss_auth/src/login/password_reset_result.dart';
 import 'package:kiss_auth/src/login/user_profile.dart';
 
 /// Simple in-memory login provider for testing and demos
@@ -425,9 +426,34 @@ class InMemoryLoginProvider implements LoginProvider {
       'name': 'InMemoryLoginProvider',
       'version': '1.0.0',
       'type': 'testing',
-      'capabilities': ['username_password', 'email_password', 'api_key', 'anonymous', 'user_creation'],
+      'capabilities': [
+        'username_password',
+        'email_password',
+        'api_key',
+        'anonymous',
+        'user_creation',
+        'password_reset',
+      ],
       'user_count': _users.length,
     };
+  }
+
+  @override
+  Future<PasswordResetResult> resetPassword(String email) async {
+    final delay = 400 + (DateTime.now().millisecondsSinceEpoch % 300);
+    await Future<void>.delayed(Duration(milliseconds: delay));
+
+    final user = _users[email];
+    if (user == null) {
+      return PasswordResetResult.failure(
+        error: 'User not found',
+        errorCode: 'user_not_found',
+      );
+    }
+
+    return PasswordResetResult.success(
+      message: 'Password reset email sent to $email',
+    );
   }
 }
 

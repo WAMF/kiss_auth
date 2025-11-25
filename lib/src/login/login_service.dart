@@ -1,6 +1,7 @@
 import 'package:kiss_auth/src/login/login_credentials.dart';
 import 'package:kiss_auth/src/login/login_provider.dart';
 import 'package:kiss_auth/src/login/login_result.dart';
+import 'package:kiss_auth/src/login/password_reset_result.dart';
 
 /// Service class that coordinates login operations
 /// 
@@ -165,9 +166,23 @@ class LoginService {
   }
 
   /// Get provider information
-  /// 
+  ///
   /// Returns metadata about the configured login provider.
   Map<String, dynamic> getProviderInfo() {
     return _provider.getProviderInfo();
+  }
+
+  /// Request a password reset for the given email
+  ///
+  /// Sends a password reset request to the provider.
+  Future<PasswordResetResult> resetPassword(String email) async {
+    try {
+      return await _provider.resetPassword(email);
+    } on Exception catch (e) {
+      return PasswordResetResult.failure(
+        error: 'Password reset failed: $e',
+        errorCode: 'password_reset_error',
+      );
+    }
   }
 }

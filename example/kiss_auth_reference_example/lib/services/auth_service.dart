@@ -90,7 +90,7 @@ class AuthService {
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(_tokenKey);
-    
+
     if (token != null) {
       try {
         final loginProvider = resolve<LoginProvider>();
@@ -99,9 +99,14 @@ class AuthService {
         // Continue with local logout even if provider logout fails
       }
     }
-    
+
     _currentAuthData = null;
     _currentAuthContext = null;
     await prefs.remove(_tokenKey);
+  }
+
+  Future<PasswordResetResult> resetPassword(String email) async {
+    final loginService = resolve<LoginService>();
+    return loginService.resetPassword(email);
   }
 }

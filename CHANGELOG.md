@@ -1,3 +1,18 @@
+## 0.3.0
+
+### ✨ New Features
+- **Password Reset**: Added `resetPassword` method to `LoginProvider` interface and `LoginService`
+- **PasswordResetResult**: New result type for password reset operations
+- **Forgot Password UI**: Added forgot password dialog to reference example app
+
+### 🔧 Improvements
+- **InMemoryLoginProvider**: Now supports password reset with user existence check
+- **AuthService**: Added `resetPassword` method for reference example
+- **LoginScreen**: Added "Forgot Password?" link with dialog flow
+
+### 🐛 Bug Fixes
+- Fixed deprecated `value` parameter in `DropdownButtonFormField` (replaced with `initialValue`)
+
 ## 0.2.0
 
 ### ✨ New Features

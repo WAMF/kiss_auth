@@ -173,8 +173,54 @@ void main() {
     test('should update provider capabilities to include user_creation', () {
       final info = provider.getProviderInfo();
       final capabilities = info['capabilities'] as List<String>;
-      
+
       expect(capabilities, contains('user_creation'));
+    });
+  });
+
+  group('InMemoryLoginProvider - Password Reset', () {
+    late InMemoryLoginProvider provider;
+
+    setUp(() {
+      provider = InMemoryLoginProvider();
+    });
+
+    test('should successfully reset password for existing user', () async {
+      final result = await provider.resetPassword('admin@example.com');
+
+      expect(result.isSuccess, isTrue);
+      expect(result.message, contains('admin@example.com'));
+      expect(result.error, isNull);
+      expect(result.errorCode, isNull);
+    });
+
+    test('should fail to reset password for non-existent user', () async {
+      final result = await provider.resetPassword('nonexistent@example.com');
+
+      expect(result.isSuccess, isFalse);
+      expect(result.error, equals('User not found'));
+      expect(result.errorCode, equals('user_not_found'));
+      expect(result.message, isNull);
+    });
+
+    test('should reset password for newly created user', () async {
+      const credentials = UserCreationCredentials(
+        email: 'newuser@example.com',
+        password: 'password123',
+      );
+
+      await provider.createUser(credentials);
+      final result = await provider.resetPassword('newuser@example.com');
+
+      expect(result.isSuccess, isTrue);
+      expect(result.message, contains('newuser@example.com'));
+    });
+
+    test('should include password_reset in provider capabilities', () {
+      final info = provider.getProviderInfo();
+      final capabilities = info['capabilities'] as List<String>;
+
+      expect(capabilities, contains('password_reset'));
     });
   });
 }

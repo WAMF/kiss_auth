@@ -37,4 +37,5 @@ export 'src/login/login_provider.dart';
 export 'src/login/login_provider_in_memory.dart';
 export 'src/login/login_result.dart';
 export 'src/login/login_service.dart';
+export 'src/login/password_reset_result.dart';
 export 'src/login/user_profile.dart';
